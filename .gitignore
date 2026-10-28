@@ -1,0 +1,5 @@
+datos/
+__pycache__/
+.venv/
+*.tmp.xlsx
+~$*

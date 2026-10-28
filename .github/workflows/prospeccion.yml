@@ -1,0 +1,87 @@
+name: Prospección diaria
+
+on:
+  schedule:
+    # 11:07 UTC = 6:07 a. m. en Colombia. El Excel queda listo antes de las 7:00.
+    - cron: "7 11 * * *"
+  workflow_dispatch: {}   # botón "Run workflow" para correrlo a mano
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prospeccion
+  cancel-in-progress: false
+
+jobs:
+  prospectar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar librerías
+        run: pip install -r requirements.txt
+
+      - name: Generar búsquedas del día (rota barrios)
+        run: python generar_busquedas.py datos/busquedas_hoy.txt
+
+      - name: Scrapear Google Maps
+        run: |
+          HOY=$(date -u -d '-5 hours' +%Y-%m-%d)
+          echo "HOY=$HOY" >> "$GITHUB_ENV"
+          touch "datos/resultados.csv"
+          chmod 666 datos/resultados.csv
+          leer() { python -c "import json;print(json.load(open('config.json'))['$1'])"; }
+          EXTRA=""
+          [ "$(leer extraer_emails)" = "True" ] && EXTRA="-email"
+          docker run --rm \
+            -v "$PWD/datos/busquedas_hoy.txt:/busquedas.txt:ro" \
+            -v "$PWD/datos/resultados.csv:/resultados.csv" \
+            gosom/google-maps-scraper \
+            -input /busquedas.txt \
+            -results /resultados.csv \
+            -depth "$(leer profundidad_scroll)" \
+            -lang "$(leer idioma)" \
+            -c 4 \
+            -exit-on-inactivity 3m $EXTRA
+          echo "Filas obtenidas: $(($(wc -l < datos/resultados.csv) - 1))"
+          test -s datos/resultados.csv || { echo "::error::El scraper no trajo resultados"; exit 1; }
+
+      - name: Limpiar y actualizar el Excel
+        run: python limpiar.py datos/resultados.csv
+
+      - name: Guardar resultado en el repositorio
+        run: |
+          git config user.name "prospeccion-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add Prospectos.xlsx
+          if git diff --cached --quiet; then
+            echo "Sin cambios"
+          else
+            git commit -m "Prospectos $HOY: $(cat datos/ultimo_resumen.txt)"
+            git pull --rebase -X theirs || true
+            git push
+          fi
+
+      - name: Resumen
+        if: always()
+        run: |
+          echo "### Prospección $HOY" >> "$GITHUB_STEP_SUMMARY"
+          cat datos/ultimo_resumen.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "Sin resumen (revisa los pasos anteriores)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar CSV crudo (7 días)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-${{ env.HOY }}
+          path: datos/resultados.csv
+          retention-days: 7
+          if-no-files-found: ignore

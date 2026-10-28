@@ -1,0 +1,29 @@
+{
+  "nichos": [
+    "odontólogo",
+    "clínica dental",
+    "ortodoncista",
+    "medicina estética",
+    "centro de estética",
+    "cirujano plástico",
+    "dermatólogo",
+    "clínica privada",
+    "consultorio médico",
+    "nutricionista"
+  ],
+
+  "ciudades": {
+    "Manizales": ["Cable", "Palermo", "Chipre", "Centro", "Milán", "La Enea"],
+    "Pereira":   ["Centro", "Circunvalar", "Pinares", "Álamos", "Cerritos", "Dosquebradas"],
+    "Medellín":  ["El Poblado", "Laureles", "Envigado", "Belén", "Centro", "Sabaneta", "Itagüí", "Bello"],
+    "Bogotá":    ["Chapinero", "Usaquén", "Cedritos", "Suba", "Teusaquillo", "Kennedy", "Fontibón", "Chicó"]
+  },
+
+  "zonas_por_dia": 1,
+  "profundidad_scroll": 3,
+  "idioma": "es",
+  "extraer_emails": false,
+
+  "calificacion_baja": 4.0,
+  "pocas_resenas": 15
+}
